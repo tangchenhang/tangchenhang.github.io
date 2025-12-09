@@ -222,10 +222,15 @@ async function endSystem() {
 
 // ==================== 房主密码验证 ====================
 function verifyHouseOwnerPassword() {
-    const inputPassword = document.getElementById('owner-password').value;
+    const inputPassword = document.getElementById('owner-password');
     const errorElement = document.getElementById('password-error');
 
-    if (inputPassword === DEFAULT_OWNER_PASSWORD) {
+    if (!inputPassword || !errorElement) {
+        console.error('找不到房主密码或错误元素');
+        return;
+    }
+
+    if (inputPassword.value === DEFAULT_OWNER_PASSWORD) {
         errorElement.classList.add('hidden');
         showElement('house-owner-dashboard');
     } else {
