@@ -605,7 +605,41 @@ async function submitFile() {
     }
 }
 
-// ==================== 文件打包导出 ====================
+// ==================== 重置按钮 ====================
+// 清空数据并重置系统
+function resetSystem() {
+    if (confirm('确定要重置系统吗？这将清除所有已提交的数据！')) {
+        try {
+            // 清空所有已提交的文件和提交记录
+            const query = new AV.Query('Submitter');
+            query.equalTo('roomId', ROOM_ID);
+            query.equalTo('submitted', true);
+            query.exists('fileUrl');
+            query.find().then(submittedFiles => {
+                submittedFiles.forEach(file => {
+                    file.set('submitted', false);
+                    file.set('fileUrl', '');
+                    file.set('fileName', '');
+                    file.set('fileType', '');
+                    file.set('submitTime', '');
+                    file.save();
+                });
+                alert('系统已重置，所有提交数据已清空。');
+                // 更新房主仪表盘
+                updateHouseOwnerDashboard();
+            }).catch(error => {
+                alert('重置失败：' + error.message);
+            });
+
+            // 重置系统状态
+            updateSystemStatus('not_started');
+        } catch (error) {
+            alert('重置失败：' + error.message);
+        }
+    }
+}
+
+// ==================== 导出文件 ====================
 async function exportAllSubmittedFiles() {
     try {
         // 查询已提交的文件
@@ -734,3 +768,5 @@ uploadArea.addEventListener('drop', async (e) => {
 window.onload = async function() {
     await updateSystemStatusDisplay();
 };
+
+
