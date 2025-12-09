@@ -239,7 +239,7 @@ function verifyHouseOwnerPassword() {
 }
 
 // ==================== 提交人名单管理（LeanCloud 版） ====================
-// 添加提交人（已修复ACL：公共可读）
+// 添加提交人（核心修改：ACL = 公共读 + 房主写）
 async function addSubmitter() {
     const nameInput = document.getElementById('add-name');
     const name = nameInput.value.trim();
@@ -267,10 +267,17 @@ async function addSubmitter() {
         submitter.set('fileType', '');
         submitter.set('submitTime', '');
         
-        // 关键：设置ACL为公共可读（访客能查询到该数据）
+        // 核心修改：ACL配置（公共读 + 房主写，解决删除权限问题）
         const acl = new AV.ACL();
-        acl.setPublicReadAccess(true); // 所有用户可读取
-        submitter.setACL(acl); // 绑定ACL到提交人对象
+        acl.setPublicReadAccess(true); // 所有用户可读（访客能查）
+        // 房主账号可写/删（兼容未登录场景，控制台用masterKey兜底）
+        const currentUser = AV.User.current();
+        if (currentUser) {
+            acl.setWriteAccess(currentUser.id, true); // 登录房主可删
+        } else {
+            acl.setPublicWriteAccess(true); // 未登录时临时开放（控制台操作）
+        }
+        submitter.setACL(acl);
         
         await submitter.save();
         nameInput.value = '';
@@ -280,7 +287,7 @@ async function addSubmitter() {
     }
 }
 
-// 导入提交人名单（已修复ACL：批量添加的对象也带公共可读）
+// 导入提交人名单（核心修改：批量对象也配置 公共读 + 房主写 ACL）
 async function importSubmitterList() {
     const fileInput = document.getElementById('import-list');
     const file = fileInput.files[0];
@@ -338,7 +345,7 @@ async function importSubmitterList() {
     }
 }
 
-// 处理导入的姓名列表（已修复ACL：批量对象添加公共可读）
+// 处理导入的姓名列表（核心修改：批量对象ACL配置）
 async function processImportedNames(names, fileInput) {
     if (names.length === 0) {
         alert('导入文件无有效姓名！');
@@ -354,7 +361,7 @@ async function processImportedNames(names, fileInput) {
         const existingSubmitters = await query.find();
         const existingNames = existingSubmitters.map(item => item.get('name'));
 
-        // 批量创建新提交人（带公共可读ACL）
+        // 批量创建新提交人（带 公共读 + 房主写 ACL）
         const newSubmitters = names.filter(name => !existingNames.includes(name)).map(name => {
             const submitter = new Submitter();
             submitter.set('roomId', ROOM_ID);
@@ -365,9 +372,15 @@ async function processImportedNames(names, fileInput) {
             submitter.set('fileType', '');
             submitter.set('submitTime', '');
             
-            // 关键：批量对象也添加公共可读ACL
+            // 核心修改：批量对象也配置相同ACL
             const acl = new AV.ACL();
             acl.setPublicReadAccess(true);
+            const currentUser = AV.User.current();
+            if (currentUser) {
+                acl.setWriteAccess(currentUser.id, true);
+            } else {
+                acl.setPublicWriteAccess(true);
+            }
             submitter.setACL(acl);
             
             return submitter;
@@ -386,13 +399,14 @@ async function processImportedNames(names, fileInput) {
     }
 }
 
-// 删除提交人
+// 删除提交人（优化：强制用masterKey兜底，确保能删）
 async function deleteSubmitter(objectId) {
     if (!confirm('确定要删除该提交人吗？')) return;
 
     try {
         const submitter = AV.Object.createWithoutData('Submitter', objectId);
-        await submitter.destroy();
+        // 强制用masterKey删除，绕过ACL限制
+        await submitter.destroy({ useMasterKey: true });
         await updateHouseOwnerDashboard();
     } catch (error) {
         alert('删除提交人失败：' + error.message);
@@ -621,24 +635,24 @@ async function submitFile() {
     }
 }
 
-// ==================== 重置按钮 ====================
+// ==================== 重置按钮（优化：批量重置也用masterKey） ====================
 // 清空数据并重置系统
 function resetSystem() {
     if (confirm('确定要重置系统吗？这将清除所有已提交的数据！')) {
         try {
-            // 清空所有已提交的文件和提交记录
+            // 清空所有已提交的文件和提交记录（用masterKey）
             const query = new AV.Query('Submitter');
             query.equalTo('roomId', ROOM_ID);
             query.equalTo('submitted', true);
             query.exists('fileUrl');
-            query.find().then(submittedFiles => {
+            query.find({ useMasterKey: true }).then(submittedFiles => {
                 submittedFiles.forEach(file => {
                     file.set('submitted', false);
                     file.set('fileUrl', '');
                     file.set('fileName', '');
                     file.set('fileType', '');
                     file.set('submitTime', '');
-                    file.save();
+                    file.save({ useMasterKey: true });
                 });
                 alert('系统已重置，所有提交数据已清空。');
                 // 更新房主仪表盘
