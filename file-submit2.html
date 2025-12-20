@@ -1,432 +1,2147 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<title>文件提交系统</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件收集系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
 
-<!-- 图标库 -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome/css/font-awesome.min.css">
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --gray: #6b7280;
+            --gray-light: #f3f4f6;
+            --border: #e5e7eb;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
 
-<style>
-/* ================= 全局基础 ================= */
-* {
-    box-sizing: border-box;
-}
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
 
-body {
-    margin: 0;
-    background: linear-gradient(180deg, #f0fdf4, #f8fafc);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
-                 "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
-    color: #1f2937;
-}
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            max-height: 95vh;
+        }
 
-/* ================= 页面容器 ================= */
-.center-page {
-    max-width: 520px;
-    margin: 32px auto;
-    padding: 22px;
-    background: #ffffff;
-    border-radius: 18px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.06);
-}
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-/* ================= 标题 ================= */
-.title {
-    text-align: center;
-    font-size: 26px;
-    font-weight: 700;
-    margin-bottom: 18px;
-    color: #059669;
-}
+        .header h1 {
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
 
-/* ================= 表单 ================= */
-input[type="text"],
-input[type="password"],
-input[type="number"],
-select {
-    width: 100%;
-    padding: 14px 16px;
-    font-size: 16px;
-    border-radius: 12px;
-    border: 1px solid #d1d5db;
-    margin-top: 12px;
-    transition: 0.2s;
-}
+        .status-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
 
-input:focus {
-    outline: none;
-    border-color: #10b981;
-    box-shadow: 0 0 0 3px rgba(16,185,129,.15);
-}
+        .status-running { background: var(--success); }
+        .status-paused { background: var(--warning); }
+        .status-ended { background: var(--danger); }
 
-/* ================= 按钮系统 ================= */
-.btn {
-    width: 100%;
-    height: 50px;
-    margin-top: 14px;
-    border: none;
-    border-radius: 14px;
-    background: linear-gradient(135deg,#10b981,#059669);
-    color: #fff;
-    font-size: 17px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: .25s;
-}
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+        }
 
-.btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 18px rgba(16,185,129,.3);
-}
+        /* Login Screen */
+        .login-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+            padding: 40px 20px;
+        }
 
-.btn-small {
-    padding: 8px 14px;
-    font-size: 14px;
-    border-radius: 10px;
-    border: none;
-    cursor: pointer;
-    background: #10b981;
-    color: white;
-    margin-right: 8px;
-}
+        .role-cards {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
 
-.btn-small:hover {
-    background: #059669;
-}
+        .role-card {
+            background: var(--gray-light);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+            width: 280px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
 
-.btn-danger {
-    background: linear-gradient(135deg,#ef4444,#dc2626) !important;
-}
+        .role-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-4px);
+            box-shadow: var(--shadow);
+        }
 
-.btn-danger:hover {
-    box-shadow: 0 6px 14px rgba(239,68,68,.35);
-}
+        .role-card h2 {
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
 
-/* ================= 状态徽章 ================= */
-.badge {
-    display: inline-block;
-    padding: 6px 14px;
-    border-radius: 999px;
-    font-size: 14px;
-    font-weight: 600;
-    color: white;
-    background: #10b981;
-}
+        .role-card p {
+            color: var(--gray);
+            font-size: 0.9rem;
+        }
 
-/* ================= 区块标题 ================= */
-.section-title {
-    margin: 22px 0 10px;
-    font-size: 20px;
-    font-weight: 700;
-    color: #047857;
-}
+        .login-form {
+            background: var(--gray-light);
+            padding: 25px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            display: none;
+        }
 
-/* ================= 上传区域 ================= */
-#upload-area {
-    margin-top: 14px;
-    padding: 28px 10px;
-    border-radius: 16px;
-    border: 2px dashed #a7f3d0;
-    background: #f0fdf4;
-    text-align: center;
-    color: #065f46;
-    font-size: 15px;
-}
+        .login-form.active {
+            display: block;
+            animation: slideIn 0.3s;
+        }
 
-#upload-area:hover {
-    border-color: #10b981;
-}
+        .form-group {
+            margin-bottom: 20px;
+        }
 
-/* ================= 文件预览 ================= */
-.file-preview-img {
-    width: 90px;
-    height: 90px;
-    border-radius: 12px;
-    object-fit: cover;
-    margin: 8px 8px 0 0;
-    box-shadow: 0 4px 10px rgba(0,0,0,.1);
-}
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--gray);
+        }
 
-/* ================= 名单列表（重点美化） ================= */
-#owner-list {
-    margin-top: 10px;
-}
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
 
-.grid-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 16px;
-    margin-bottom: 12px;
-    border-radius: 16px;
-    background: #ffffff;
-    box-shadow: 0 6px 16px rgba(0,0,0,.05);
-    border-left: 6px solid #10b981;
-}
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
 
-.grid-row:nth-child(even) {
-    background: #f0fdf4;
-}
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+        }
 
-/* 左侧信息 */
-.grid-row > div:nth-child(1) {
-    font-size: 17px;
-    font-weight: 700;
-    width: 70px;
-}
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
 
-/* 提交状态 */
-.grid-row > div:nth-child(2) span {
-    padding: 6px 12px;
-    border-radius: 999px;
-    font-size: 13px;
-}
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
 
-/* 时间 & 数量 */
-.grid-row > div:nth-child(3),
-.grid-row > div:nth-child(4) {
-    font-size: 13px;
-    color: #6b7280;
-    text-align: center;
-    widthj : 80px;
-}
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
 
-/* 操作按钮区 */
-.grid-row > div:nth-child(5) {
-    display: flex;
-    gap: 6px;
-}
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
 
-/* ================= 弹窗 ================= */
-#reset-dialog {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,.45);
-    justify-content: center;
-    align-items: center;
-}
-#reset-dialog:not(.hidden) {
-    display: flex;
-}
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
 
+        .btn-secondary {
+            background: var(--gray-light);
+            color: var(--gray);
+        }
 
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
-#reset-dialog > div {
-    animation: popup .25s ease;
-}
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
 
-@keyframes popup {
-    from {
-        transform: scale(.9);
-        opacity: 0;
-    }
-    to {
-        transform: scale(1);
-        opacity: 1;
-    }
-}
+        /* Visitor Panel */
+        .visitor-panel {
+            display: none;
+        }
 
-/* ================= 隐藏 ================= */
-.hidden {
-    display: none;
-}
-/* ================= 结束系统按钮美化 ================= */
-#btn-end {
-    width: 100%;
-    height: 50px;
-    margin-top: 14px;
-    border: none;
-    border-radius: 14px;
-    font-size: 17px;
-    font-weight: 600;
-    cursor: pointer;
+        .visitor-panel.active {
+            display: block;
+        }
 
-    color: #fff;
-    background: linear-gradient(135deg, #ef4444, #dc2626);
-    box-shadow: 0 6px 18px rgba(239,68,68,.35);
+        .submit-section {
+            background: var(--gray-light);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+        }
 
-    transition: all .25s ease;
-}
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 15px 0;
+        }
 
-#btn-end:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 10px 24px rgba(239,68,68,.45);
-}
+        .upload-area:hover {
+            border-color: var(--primary);
+            background: #f0f9ff;
+        }
 
-#btn-end:active {
-    transform: scale(.98);
-}
-/* ================= 返回按钮（次级） ================= */
-.btn-back {
-    width: auto;
-    min-width: 120px;
-    height: 44px;
-    margin-top: 18px;
+        .upload-area.dragover {
+            border-color: var(--primary);
+            background: #e0f2fe;
+        }
 
-    padding: 0 22px;
-    border-radius: 14px;
+        .file-preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
 
-    font-size: 15px;
-    font-weight: 600;
+        .file-preview-item {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: white;
+        }
 
-    background: #ffffff;
-    color: #059669;
+        .file-preview-item img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+        }
 
-    border: 2px solid #a7f3d0;
-    cursor: pointer;
+        .file-preview-item .file-icon {
+            width: 100%;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            background: var(--gray-light);
+            color: var(--gray);
+        }
 
-    transition: all .25s ease;
-}
+        .file-name {
+            padding: 8px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            background: white;
+        }
 
-.btn-back:hover {
-    background: #ecfdf5;
-    border-color: #10b981;
-    transform: translateY(-1px);
-}
+        .remove-file {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: var(--danger);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-.btn-back:active {
-    transform: scale(.97);
-}
+        /* Host Panel */
+        .host-panel {
+            display: none;
+        }
 
+        .host-panel.active {
+            display: block;
+        }
 
-</style>
+        .host-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            border-bottom: 2px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--gray);
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        .control-panel {
+            background: var(--gray-light);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+        }
+
+        .control-item {
+            margin-bottom: 15px;
+        }
+
+        .control-item label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .list-container {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .list-item {
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .list-item:last-child {
+            border-bottom: none;
+        }
+
+        .list-item:hover {
+            background: var(--gray-light);
+        }
+
+        .item-info {
+            flex: 1;
+        }
+
+        .item-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .item-meta {
+            font-size: 0.85rem;
+            color: var(--gray);
+        }
+
+        .item-status {
+            font-size: 0.85rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .status-submitted {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-pending {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            color: var(--gray);
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        .file-preview-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .file-preview-modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 90%;
+            max-height: 90%;
+            overflow: auto;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--danger);
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+
+        .modal-body img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .modal-body .file-info {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+        }
+
+        .modal-actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        /* Notifications */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            min-width: 250px;
+        }
+
+        .notification.show {
+            display: flex;
+            animation: slideInRight 0.3s;
+        }
+
+        .notification.success {
+            border-left: 4px solid var(--success);
+        }
+
+        .notification.error {
+            border-left: 4px solid var(--danger);
+        }
+
+        .notification.info {
+            border-left: 4px solid var(--primary);
+        }
+
+        /* Loading */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Animations */
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                max-height: 100vh;
+                border-radius: 0;
+            }
+
+            .header {
+                padding: 15px;
+            }
+
+            .main-content {
+                padding: 15px;
+            }
+
+            .role-cards {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .role-card {
+                width: 100%;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .import-section {
+            background: var(--gray-light);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: var(--primary);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .file-input-label:hover {
+            background: var(--primary-dark);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .limit-info {
+            font-size: 0.9rem;
+            color: var(--gray);
+            margin-top: 5px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--gray);
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+    </style>
 </head>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
 <body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 id="headerTitle">📁 文件收集系统</h1>
+            <div id="headerStatus"></div>
+        </div>
 
-<!-- ========== 首页 ========== -->
-<div id="page-home" class="center-page">
-    <div class="title">文件提交系统</div>
+        <!-- Main Content -->
+        <div class="main-content" id="mainContent">
+            <!-- Login Screen -->
+            <div id="loginScreen" class="login-screen">
+                <h2 style="color: var(--primary);">欢迎使用文件收集系统</h2>
+                <p style="color: var(--gray); text-align: center; max-width: 500px;">
+                    请选择您的身份进入系统
+                </p>
 
-    <button class="btn" onclick="goVisitor()">我是访客</button>
-    <button class="btn" onclick="goOwnerLogin()">我是房主</button>
-</div>
+                <div class="role-cards">
+                    <div class="role-card" onclick="selectRole('visitor')">
+                        <h2>👥 访客</h2>
+                        <p>提交文件或图片，查看我的提交</p>
+                    </div>
+                    <div class="role-card" onclick="selectRole('host')">
+                        <h2>🏠 房主</h2>
+                        <p>管理收集任务，查看所有提交</p>
+                    </div>
+                </div>
 
+                <!-- Visitor Login -->
+                <div id="visitorLoginForm" class="login-form">
+                    <h3 style="margin-bottom: 20px; color: var(--primary);">访客登陆</h3>
+                    <div class="form-group">
+                        <label>您的姓名</label>
+                        <input type="text" id="visitorName" placeholder="请输入您的姓名">
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="loginVisitor()">进入</button>
+                        <button class="btn btn-secondary" onclick="backToRoleSelect()">返回</button>
+                    </div>
+                </div>
 
+                <!-- Host Login -->
+                <div id="hostLoginForm" class="login-form">
+                    <h3 style="margin-bottom: 20px; color: var(--primary);">房主登陆</h3>
+                    <div class="form-group">
+                        <label>管理员密码</label>
+                        <input type="password" id="hostPassword" placeholder="请输入密码">
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="loginHost()">登陆</button>
+                        <button class="btn btn-secondary" onclick="backToRoleSelect()">返回</button>
+                    </div>
+                </div>
+            </div>
 
-<!-- ========== 访客验证 ========== -->
-<div id="page-visitor-verify" class="center-page hidden">
-    <div class="title">访客验证</div>
-    <input id="visitor-name-input" placeholder="请输入姓名">
-    <button class="btn" onclick="visitor.verify()">下一步</button>
-    <button class="btn-back" onclick="goHome()">返回</button>
+            <!-- Visitor Panel -->
+            <div id="visitorPanel" class="visitor-panel">
+                <div class="submit-section">
+                    <h3 style="margin-bottom: 15px;">提交文件</h3>
+                    <div id="visitorInfo" style="margin-bottom: 15px; color: var(--gray);"></div>
+                    <div id="uploadArea" class="upload-area" onclick="document.getElementById('fileInput').click()">
+                        <div style="font-size: 3rem; margin-bottom: 10px;">☁️</div>
+                        <div style="font-weight: 600; margin-bottom: 5px;">点击或拖拽文件到此处</div>
+                        <div style="font-size: 0.9rem; color: var(--gray);">支持图片和常见文件格式</div>
+                        <div id="limitInfo" class="limit-info"></div>
+                    </div>
+                    <input type="file" id="fileInput" multiple accept="image/*,.pdf,.doc,.docx,.txt">
+                    <div class="btn-group">
+                        <button class="btn btn-primary" id="submitFilesBtn" onclick="submitFiles()" disabled>
+                            提交文件
+                        </button>
+                        <button class="btn btn-secondary" onclick="logoutVisitor()">退出</button>
+                    </div>
+                </div>
 
-</div>
+                <div id="visitorFilesSection" style="display: none;">
+                    <h3 style="margin-bottom: 15px;">我的提交</h3>
+                    <div id="visitorFilesList" class="file-preview-grid"></div>
+                </div>
+            </div>
 
+            <!-- Host Panel -->
+            <div id="hostPanel" class="host-panel">
+                <!-- Control Panel -->
+                <div class="control-panel">
+                    <h3 style="margin-bottom: 15px;">收集控制</h3>
+                    <div class="btn-group" style="margin-bottom: 15px;">
+                        <button class="btn btn-success" id="startBtn" onclick="updateCollectionStatus('running')">🚀 启动收集</button>
+                        <button class="btn btn-warning" id="pauseBtn" onclick="updateCollectionStatus('paused')">⏸️ 暂停收集</button>
+                        <button class="btn btn-danger" id="endBtn" onclick="updateCollectionStatus('ended')">🛑 结束收集</button>
+                    </div>
+                    <div class="control-item">
+                        <label>每人文件数量限制</label>
+                        <input type="number" id="fileLimit" min="1" value="3" style="max-width: 150px;">
+                        <button class="btn btn-primary btn-small" onclick="updateFileLimit()">更新限制</button>
+                    </div>
+                </div>
 
-<!-- ========== 访客提交 ========== -->
-<div id="page-visitor-submit" class="center-page hidden">
-    <div class="title">文件提交</div>
-    <div>最多上传 <span id="visitor-max-files">1</span> 个文件</div>
+                <!-- Stats -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalSubmitters">0</div>
+                        <div class="stat-label">总人数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="submittedCount">0</div>
+                        <div class="stat-label">已提交</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="pendingCount">0</div>
+                        <div class="stat-label">待提交</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalFiles">0</div>
+                        <div class="stat-label">文件总数</div>
+                    </div>
+                </div>
 
-    <div id="upload-area">拖拽文件到此 或 点击下方按钮</div>
-    <input type="file" id="visitor-file-input" multiple>
+                <!-- Tabs -->
+                <div class="host-tabs">
+                    <button class="tab-btn active" onclick="switchTab('submitters')">📋 提交人管理</button>
+                    <button class="tab-btn" onclick="switchTab('files')">📄 文件管理</button>
+                    <button class="tab-btn" onclick="switchTab('settings')">⚙️ 高级设置</button>
+                </div>
 
-    <div id="visitor-file-list" style="margin-top:10px;"></div>
+                <!-- Tab: Submitters -->
+                <div id="tab-submitters" class="tab-content active">
+                    <div class="btn-group" style="margin-bottom: 20px;">
+                        <button class="btn btn-primary" onclick="showAddSubmitterModal()">➕ 添加人员</button>
+                        <button class="btn btn-secondary" onclick="showImportModal()">📥 导入名单</button>
+                        <button class="btn btn-danger" onclick="clearSubmitters()">🗑️ 清空名单</button>
+                    </div>
 
-    <button class="btn" onclick="visitor.submit()">提交文件</button>
-    <button class="btn-back" onclick="goHome()">返回</button>
+                    <div class="list-container" id="submittersList">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📋</div>
+                            <div>暂无提交人，请添加或导入名单</div>
+                        </div>
+                    </div>
+                </div>
 
-</div>
+                <!-- Tab: Files -->
+                <div id="tab-files" class="tab-content">
+                    <div class="btn-group" style="margin-bottom: 20px;">
+                        <button class="btn btn-success" onclick="exportAllFiles()">📦 导出全部</button>
+                        <button class="btn btn-danger" onclick="clearAllFiles()">🗑️ 清空所有文件</button>
+                    </div>
 
+                    <div id="filesList" class="list-container">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📄</div>
+                            <div>暂无文件提交</div>
+                        </div>
+                    </div>
+                </div>
 
-<!-- ========== 访客查看已提交文件 ========== -->
-<div id="page-visitor-view" class="center-page hidden">
-    <div class="title">我的文件</div>
-    <div id="visitor-thanks" class="visitor-thanks hidden"></div>
-    <div id="visitor-files-display"></div>
-   <button class="btn-back" onclick="goHome()">返回</button>
+                <!-- Tab: Settings -->
+                <div id="tab-settings" class="tab-content">
+                    <div class="import-section">
+                        <h3 style="margin-bottom: 15px;">危险操作区</h3>
+                        <p style="color: var(--danger); margin-bottom: 15px; font-weight: 600;">
+                            ⚠️ 以下操作不可恢复，请谨慎操作！
+                        </p>
+                        <div class="btn-group">
+                            <button class="btn btn-warning" onclick="resetCollection()">🔄 重置收集内容</button>
+                            <button class="btn btn-danger" onclick="resetAll()">💥 重置全部（危险）</button>
+                        </div>
+                    </div>
 
-</div>
+                    <div class="import-section">
+                        <h3 style="margin-bottom: 15px;">系统信息</h3>
+                        <div id="systemInfo" style="color: var(--gray); line-height: 1.8;"></div>
+                    </div>
 
-
-
-<!-- ========== 房主登录 ========== -->
-<div id="page-owner-login" class="center-page hidden">
-    <div class="title">房主登录</div>
-    <input id="owner-pass-input" placeholder="请输入房主密码" type="password">
-    <button class="btn" onclick="owner.login()">进入管理界面</button>
-    <button class="btn-back" onclick="goHome()">返回</button>
-
-</div>
-
-
-<!-- ========== 房主仪表盘 ========== -->
-<div id="page-owner-dashboard" class="center-page hidden">
-    <div class="title">房主管理界面</div>
-
-    <div>
-        系统状态：<span id="sys-status-badge" class="badge">未知</span>
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" onclick="logoutHost()">退出房主</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- 控制按钮 -->
-    <button id="btn-start" class="btn">开始系统</button>
-    <button id="btn-pause" class="btn">暂停系统</button>
-    <button id="btn-resume" class="btn">恢复系统</button>
-    <button id="btn-end" class="btn-danger">结束系统</button>
-
-    <div class="section-title">名单管理</div>
-    <input id="add-name-input" placeholder="输入姓名以添加">
-    <button class="btn" onclick="owner.addName()">
-    添加到名单
-</button>
-    <button class="btn-back" onclick="goHome()">返回</button>
-
-
-    <div style="margin-top:12px;">
-        上传数量限制：
-        <input id="max-files-input" type="number" min="1">
-        <button class="btn-small" onclick="system.setMaxFiles()">保存</button>
+    <!-- Modals -->
+    <!-- Add Submitter Modal -->
+    <div id="addSubmitterModal" class="file-preview-modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <button class="modal-close" onclick="closeModal('addSubmitterModal')">×</button>
+            <h3 style="margin-bottom: 20px;">添加提交人</h3>
+            <div class="form-group">
+                <label>姓名</label>
+                <input type="text" id="newSubmitterName" placeholder="输入姓名">
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="addSubmitter()">添加</button>
+                <button class="btn btn-secondary" onclick="closeModal('addSubmitterModal')">取消</button>
+            </div>
+        </div>
     </div>
 
-    <div style="margin-top:12px;">
-        提交后允许修改：
-        <input type="checkbox" id="allow-modify-checkbox" onchange="owner.updateAllowModify()">
+    <!-- Import Modal -->
+    <div id="importModal" class="file-preview-modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <button class="modal-close" onclick="closeModal('importModal')">×</button>
+            <h3 style="margin-bottom: 20px;">导入名单</h3>
+            <p style="color: var(--gray); margin-bottom: 15px;">
+                上传CSV或TXT文件，每行一个姓名。支持从Excel复制粘贴。
+            </p>
+            <div class="form-group">
+                <label class="file-input-label" for="importFile">
+                    📁 选择文件
+                </label>
+               <input
+  type="file"
+  id="importFile"
+  accept=".csv,.txt,.xls,.xlsx"
+  onchange="handleImportFile(event)"
+>
+
+                <div id="importPreview" style="margin-top: 15px; color: var(--gray);"></div>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="confirmImport()">确认导入</button>
+                <button class="btn btn-secondary" onclick="closeModal('importModal')">取消</button>
+            </div>
+        </div>
     </div>
 
-    <div class="section-title">搜索</div>
-    <input id="owner-search-input" placeholder="输入名字搜索" oninput="refreshDashboard()">
-
-    <div class="section-title">操作</div>
-    <button class="btn-small" onclick="owner.exportAll()">导出全部文件</button>
-    <button class="btn-small btn-danger" onclick="owner.showResetDialog()">重置系统</button>
-
-    <div class="section-title">名单列表（已提交排前）</div>
-    <div id="owner-list"></div>
-
-    <button class="btn-small" onclick="goHome()">返回首页</button>
-</div>
-
-
-
-<!-- ========== 弹窗（重置用） ========== -->
-<!-- ❗ 已修复：删除了 display:none -->
-<div id="reset-dialog" class="hidden" style="
-    position: fixed;
-    left:0; top:0; right:0; bottom:0;
-    background: rgba(0,0,0,0.45);
-    justify-content:center;
-    align-items:center;
-">
-    <div style="background:white;padding:20px;border-radius:14px;width:320px;">
-        <div class="title" style="font-size:20px;">重置系统</div>
-        <p>请选择重置方式：</p>
-
-        <button class="btn-small btn-danger" onclick="owner.resetAll()">删除名单 + 文件</button>
-        <button class="btn-small" onclick="owner.resetFilesOnly()">只删除文件</button>
-        <button class="btn-small" onclick="owner.hideResetDialog()">取消</button>
+    <!-- File Preview Modal -->
+    <div id="filePreviewModal" class="file-preview-modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <button class="modal-close" onclick="closeModal('filePreviewModal')">×</button>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-actions" id="modalActions"></div>
+        </div>
     </div>
-</div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification"></div>
+
+    <script>
+        // ==================== 配置区域 ====================
+        // ⚠️ 请替换为你的LeanCloud配置
+        const LEAN_CONFIG = {
+            appId: 'awjrq2pnF6yDBX2QT7Sq1dHQ-gzGzoHsz',      // 替换为你的App ID
+            appKey: 'WY6uq9q4hPthkwKX5JIHrlYk',    // 替换为你的App Key
+            serverURL: 'https://awjrq2pn.lc-cn-n1-shared.com' // 替换为你的Server URL
+        };
+
+        // 默认管理员密码（建议修改）
+        const ADMIN_PASSWORD = 'admin123';
+
+        // ==================== 全局状态 ====================
+        let currentUser = null; // 当前用户信息 {role: 'visitor'|'host', name: string}
+        let collectionStatus = 'paused'; // running, paused, ended
+        let fileLimit = 3; // 每人文件数量限制
+        let submittersCache = []; // 缓存提交人列表
+        let submissionsCache = []; // 缓存提交文件列表
+        let tempImportData = []; // 临时导入数据
+
+        // ==================== LeanCloud 初始化 ====================
+        function initLeanCloud() {
+            if (LEAN_CONFIG.appId === 'YOUR_APP_ID' || !LEAN_CONFIG.appId) {
+                showNotification('⚠️ 请先配置LeanCloud信息！', 'error');
+                return false;
+            }
+            try {
+                AV.init({
+                    appId: LEAN_CONFIG.appId,
+                    appKey: LEAN_CONFIG.appKey,
+                    serverURL: LEAN_CONFIG.serverURL
+                });
+                return true;
+            } catch (error) {
+                showNotification('LeanCloud初始化失败：' + error.message, 'error');
+                return false;
+            }
+        }
+
+        // ==================== 数据模型 ====================
+        // 定义LeanCloud数据类
+        const CollectSettings = AV.Object.extend('CollectSettings');
+        const Submitters = AV.Object.extend('Submitters');
+        const Submissions = AV.Object.extend('Submissions');
+
+        // ==================== 通用函数 ====================
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification show ${type}`;
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        function showLoading(element) {
+            if (element) {
+                element.disabled = true;
+                element.innerHTML = '<span class="loading"></span> 处理中...';
+            }
+        }
+
+        function hideLoading(element, text) {
+            if (element) {
+                element.disabled = false;
+                element.textContent = text;
+            }
+        }
+
+        function formatDate(date) {
+            return new Date(date).toLocaleString('zh-CN');
+        }
+
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return '🖼️';
+            if (['pdf'].includes(ext)) return '📄';
+            if (['doc', 'docx'].includes(ext)) return '📝';
+            if (['xls', 'xlsx'].includes(ext)) return '📊';
+            if (['txt'].includes(ext)) return '📃';
+            return '📎';
+        }
+
+        // ==================== 页面导航 ====================
+        function selectRole(role) {
+            if (!initLeanCloud()) return;
+
+            if (role === 'visitor') {
+                document.getElementById('visitorLoginForm').classList.add('active');
+                document.getElementById('hostLoginForm').classList.remove('active');
+            } else {
+                document.getElementById('hostLoginForm').classList.add('active');
+                document.getElementById('visitorLoginForm').classList.remove('active');
+            }
+        }
+
+        function backToRoleSelect() {
+            document.getElementById('visitorLoginForm').classList.remove('active');
+            document.getElementById('hostLoginForm').classList.remove('active');
+        }
+
+        function showPanel(panel) {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('visitorPanel').classList.remove('active');
+            document.getElementById('hostPanel').classList.remove('active');
+
+            if (panel === 'visitor') {
+                document.getElementById('visitorPanel').classList.add('active');
+            } else if (panel === 'host') {
+                document.getElementById('hostPanel').classList.add('active');
+            }
+        }
+
+        // ==================== 登录系统 ====================
+        async function loginVisitor() {
+            const name = document.getElementById('visitorName').value.trim();
+            if (!name) {
+                showNotification('请输入姓名！', 'error');
+                return;
+            }
+
+            // 检查是否在提交人列表中
+            try {
+                const query = new AV.Query('Submitters');
+                query.equalTo('name', name);
+                const result = await query.first();
+
+                if (!result) {
+                    showNotification('❌ 您不在提交人名单中，请联系管理员', 'error');
+                    return;
+                }
+
+                if (result.get('hasSubmitted')) {
+                    showNotification('⚠️ 您已提交文件，如需修改请联系管理员', 'warning');
+                }
+
+                currentUser = { role: 'visitor', name: name };
+                showPanel('visitor');
+                updateVisitorInfo();
+                loadVisitorFiles();
+                checkCollectionStatus();
+            } catch (error) {
+                showNotification('登录失败：' + error.message, 'error');
+            }
+        }
+
+        function loginHost() {
+            const password = document.getElementById('hostPassword').value;
+            if (password === ADMIN_PASSWORD) {
+                currentUser = { role: 'host' };
+                showPanel('host');
+                loadHostData();
+                checkCollectionStatus();
+            } else {
+                showNotification('密码错误！', 'error');
+            }
+        }
+
+        function logoutVisitor() {
+            currentUser = null;
+            document.getElementById('visitorPanel').classList.remove('active');
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('visitorLoginForm').classList.remove('active');
+            document.getElementById('visitorName').value = '';
+        }
+
+        function logoutHost() {
+            currentUser = null;
+            document.getElementById('hostPanel').classList.remove('active');
+            document.getElementById('loginScreen').style.display = 'flex';
+            document.getElementById('hostLoginForm').classList.remove('active');
+            document.getElementById('hostPassword').value = '';
+        }
+
+        // ==================== 访客功能 ====================
+        function updateVisitorInfo() {
+            const info = document.getElementById('visitorInfo');
+            info.innerHTML = `👋 欢迎，<strong>${currentUser.name}</strong>！请提交您的文件。`;
+        }
+
+        async function loadVisitorFiles() {
+            try {
+                const query = new AV.Query('Submissions');
+                query.equalTo('submitter', currentUser.name);
+                const files = await query.find();
+
+                if (files.length > 0) {
+                    document.getElementById('visitorFilesSection').style.display = 'block';
+                    const container = document.getElementById('visitorFilesList');
+                    container.innerHTML = '';
+
+                    files.forEach(file => {
+                        const fileObj = file.get('file');
+                        const item = createFilePreviewItem(fileObj, file.id, true);
+                        container.appendChild(item);
+                    });
+                }
+            } catch (error) {
+                console.error('加载访客文件失败:', error);
+            }
+        }
+
+        // 拖拽上传
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        let selectedFiles = [];
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+       async function handleFiles(files) {
+    files = Array.from(files);
+
+    // 获取文件数量限制
+    const limitQuery = new AV.Query('CollectSettings');
+    const settings = await limitQuery.first();
+    const limit = settings ? settings.get('fileLimit') : 3;
+
+    // 查询已提交数量
+    const submitQuery = new AV.Query('Submissions');
+    submitQuery.equalTo('submitter', currentUser.name);
+    const existing = await submitQuery.find();
+
+    const remaining = limit - existing.length - selectedFiles.length;
+
+    if (remaining <= 0) {
+        showNotification('已达到可上传文件上限', 'error');
+        return;
+    }
+
+    // 只取还能加的数量
+    const canAddFiles = files.slice(0, remaining);
+
+    // ✅ 关键：追加，而不是覆盖
+    selectedFiles.push(...canAddFiles);
+
+    if (selectedFiles.length === 0) {
+        showNotification('没有可上传的文件！', 'error');
+        return;
+    }
+
+    displaySelectedFiles();
+    document.getElementById('submitFilesBtn').disabled = false;
+    updateLimitInfo();
+}
+        function displaySelectedFiles() {
+            // 移除旧的预览
+            const oldPreviews = document.querySelectorAll('.selected-file-preview');
+            oldPreviews.forEach(el => el.remove());
+
+            const container = document.getElementById('uploadArea');
+            const previewGrid = document.createElement('div');
+            previewGrid.className = 'file-preview-grid selected-file-preview';
+            previewGrid.style.marginTop = '15px';
+
+            selectedFiles.forEach((file, index) => {
+                const item = document.createElement('div');
+                item.className = 'file-preview-item';
+
+                if (file.type.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    item.appendChild(img);
+                } else {
+                    const icon = document.createElement('div');
+                    icon.className = 'file-icon';
+                    icon.textContent = getFileIcon(file.name);
+                    item.appendChild(icon);
+                }
+
+                const fileName = document.createElement('div');
+                fileName.className = 'file-name';
+                fileName.textContent = file.name;
+                item.appendChild(fileName);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-file';
+                removeBtn.textContent = '×';
+                removeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    selectedFiles.splice(index, 1);
+                    displaySelectedFiles();
+                    if (selectedFiles.length === 0) {
+                        document.getElementById('submitFilesBtn').disabled = true;
+                    }
+                    updateLimitInfo();
+                };
+                item.appendChild(removeBtn);
+
+                previewGrid.appendChild(item);
+            });
+
+            container.after(previewGrid);
+        }
+
+        async function updateLimitInfo() {
+            const limitInfo = document.getElementById('limitInfo');
+            const limitQuery = new AV.Query('CollectSettings');
+            const settings = await limitQuery.first();
+            const limit = settings ? settings.get('fileLimit') : 3;
+
+            const submitQuery = new AV.Query('Submissions');
+            submitQuery.equalTo('submitter', currentUser.name);
+            const existing = await submitQuery.find();
+
+            const remaining = limit - existing.length;
+            limitInfo.textContent = `已提交 ${existing.length}/${limit} 个文件，还可上传 ${remaining} 个`;
+        }
+
+        async function submitFiles() {
+            if (selectedFiles.length === 0) {
+                showNotification('请先选择文件！', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('submitFilesBtn');
+            showLoading(btn);
+
+            try {
+                // 检查收集状态
+                // 检查收集状态（只允许 running）
+const statusQuery = new AV.Query('CollectSettings');
+const settings = await statusQuery.first();
+
+if (!settings || settings.get('status') !== 'running') {
+    showNotification('当前未处于收集状态，无法提交文件！', 'error');
+    hideLoading(btn, '提交文件');
+    return;
+}
 
 
-<!-- LeanCloud -->
-<script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.0/dist/av-min.js"></script>
+                // 上传文件并创建记录
+                for (const file of selectedFiles) {
+                    const avFile = new AV.File(file.name, file);
+                    await avFile.save();
 
-<!-- 你的 JS -->
-<script src="file-submit2.js"></script>
+                    const submission = new Submissions();
 
+
+
+
+
+                    submission.set('submitter', currentUser.name);
+                    submission.set('file', avFile);
+                    submission.set('fileName', file.name);
+                    submission.set('fileType', file.type);
+                    await submission.save();
+                }
+
+                // 更新提交人状态
+                const submitterQuery = new AV.Query('Submitters');
+                submitterQuery.equalTo('name', currentUser.name);
+                const submitter = await submitterQuery.first();
+                if (submitter) {
+                    submitter.set('hasSubmitted', true);
+                    submitter.set('submittedAt', new Date());
+                    await submitter.save();
+                }
+
+                showNotification(
+  `成功提交 ${selectedFiles.length} 个文件！\n感谢 ${currentUser.name} 对本次数据收集工作的支持与贡献，期待下次再会。`,
+  'success'
+);
+
+                selectedFiles = [];
+                displaySelectedFiles();
+                fileInput.value = '';
+                document.getElementById('submitFilesBtn').disabled = true;
+                loadVisitorFiles();
+                updateLimitInfo();
+            } catch (error) {
+                showNotification('提交失败：' + error.message, 'error');
+            } finally {
+                hideLoading(btn, '提交文件');
+            }
+        }
+
+        // ==================== 房主功能 ====================
+        async function loadHostData() {
+            await Promise.all([
+                updateStats(),
+                loadSubmitters(),
+                loadFiles(),
+                loadSettings()
+            ]);
+        }
+
+        async function updateStats() {
+            try {
+                const submitterQuery = new AV.Query('Submitters');
+                const submitters = await submitterQuery.find();
+                document.getElementById('totalSubmitters').textContent = submitters.length;
+
+                const submitted = submitters.filter(s => s.get('hasSubmitted')).length;
+                document.getElementById('submittedCount').textContent = submitted;
+                document.getElementById('pendingCount').textContent = submitters.length - submitted;
+
+                const fileQuery = new AV.Query('Submissions');
+                const files = await fileQuery.find();
+                document.getElementById('totalFiles').textContent = files.length;
+            } catch (error) {
+                console.error('更新统计失败:', error);
+            }
+        }
+
+        async function loadSubmitters() {
+            const container = document.getElementById('submittersList');
+            try {
+                const query = new AV.Query('Submitters');
+                const submitters = await query.find();
+                submittersCache = submitters;
+
+                // ⭐ 已提交的排前面，未提交的排后面
+submitters.sort((a, b) => {
+  const aSubmitted = a.get('hasSubmitted') ? 1 : 0;
+  const bSubmitted = b.get('hasSubmitted') ? 1 : 0;
+  return bSubmitted - aSubmitted;
+});
+
+
+                if (submitters.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📋</div>
+                            <div>暂无提交人，请添加或导入名单</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = '';
+                submitters.forEach(submitter => {
+                    const item = document.createElement('div');
+                    item.className = 'list-item';
+
+                    const name = submitter.get('name');
+                    const hasSubmitted = submitter.get('hasSubmitted');
+                    const submittedAt = submitter.get('submittedAt');
+
+                   item.innerHTML = `
+  <div class="item-info">
+    <div class="item-name">${name}</div>
+    <div class="item-meta">
+      ${hasSubmitted ? `已提交于 ${formatDate(submittedAt)}` : '待提交'}
+    </div>
+  </div>
+
+  <div class="item-status ${hasSubmitted ? 'status-submitted' : 'status-pending'}">
+    ${hasSubmitted ? '已提交' : '待提交'}
+  </div>
+
+  <div class="item-actions">
+    <button class="btn btn-success btn-small"
+      onclick="exportUserFiles('${name}')">📦 导出</button>
+
+    <button class="btn btn-warning btn-small"
+      onclick="deleteUserSubmissions('${name}')">🗑 文件</button>
+
+    <button class="btn btn-danger btn-small"
+      onclick="deleteSubmitter('${submitter.id}')">❌ 人员</button>
+  </div>
+`;
+
+                    container.appendChild(item);
+                });
+            } catch (error) {
+                container.innerHTML = '<div class="empty-state">加载失败：' + error.message + '</div>';
+            }
+        }
+
+        async function loadFiles() {
+            const container = document.getElementById('filesList');
+            try {
+                const query = new AV.Query('Submissions');
+                query.include('file');
+                const files = await query.find();
+                submissionsCache = files;
+
+                if (files.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📄</div>
+                            <div>暂无文件提交</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = '';
+                files.forEach(submission => {
+                    const file = submission.get('file');
+                    const submitter = submission.get('submitter');
+                    const item = document.createElement('div');
+                    item.className = 'list-item';
+
+                    item.innerHTML = `
+                        <div class="item-info">
+                            <div class="item-name">${getFileIcon(file.name)} ${file.name}</div>
+                            <div class="item-meta">提交人：${submitter} | ${formatDate(submission.createdAt)}</div>
+                        </div>
+                        <div class="item-actions">
+                            <button class="btn btn-primary btn-small" onclick="previewFile('${submission.id}')">预览</button>
+                            <button class="btn btn-success btn-small" onclick="exportSingleFile('${submission.id}')">导出</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteSubmission('${submission.id}')">删除</button>
+                        </div>
+                    `;
+                    container.appendChild(item);
+                });
+            } catch (error) {
+                container.innerHTML = '<div class="empty-state">加载失败：' + error.message + '</div>';
+            }
+        }
+
+        async function loadSettings() {
+            try {
+                const query = new AV.Query('CollectSettings');
+                const settings = await query.first();
+
+                if (settings) {
+                    collectionStatus = settings.get('status') || 'paused';
+                    fileLimit = settings.get('fileLimit') || 3;
+                    document.getElementById('fileLimit').value = fileLimit;
+                }
+
+                updateHeaderStatus();
+            } catch (error) {
+                console.error('加载设置失败:', error);
+            }
+        }
+
+        function updateHeaderStatus() {
+            const statusDiv = document.getElementById('headerStatus');
+            const statusMap = {
+                'running': '🟢 运行中',
+                'paused': '🟡 已暂停',
+                'ended': '🔴 已结束'
+            };
+
+            if (currentUser) {
+                statusDiv.innerHTML = `<span class="status-badge status-${collectionStatus}">${statusMap[collectionStatus]}</span>`;
+            } else {
+                statusDiv.innerHTML = '';
+            }
+        }
+
+        function checkCollectionStatus() {
+            const interval = setInterval(async () => {
+                if (!currentUser) {
+                    clearInterval(interval);
+                    return;
+                }
+
+                try {
+                    const query = new AV.Query('CollectSettings');
+                    const settings = await query.first();
+                    if (settings) {
+                        const newStatus = settings.get('status');
+                        if (newStatus !== collectionStatus) {
+                            collectionStatus = newStatus;
+                            updateHeaderStatus();
+                            if (currentUser.role === 'visitor') {
+                                showNotification(`收集状态更新：${newStatus === 'running' ? '已启动' : newStatus === 'paused' ? '已暂停' : '已结束'}`, 'info');
+                                if (newStatus !== 'running') {
+                                    document.getElementById('uploadArea').style.opacity = '0.5';
+                                    document.getElementById('uploadArea').style.pointerEvents = 'none';
+                                } else {
+                                    document.getElementById('uploadArea').style.opacity = '1';
+                                    document.getElementById('uploadArea').style.pointerEvents = 'auto';
+                                }
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('状态检查失败:', error);
+                }
+            }, 5000); // 每5秒检查一次
+        }
+
+        // ==================== 收集控制 ====================
+        async function updateCollectionStatus(status) {
+            try {
+                let settings = await new AV.Query('CollectSettings').first();
+                if (!settings) {
+                    settings = new CollectSettings();
+
+
+
+
+                }
+                settings.set('status', status);
+                await settings.save();
+
+                collectionStatus = status;
+                updateHeaderStatus();
+                showNotification(`收集状态已更新为：${status === 'running' ? '启动' : status === 'paused' ? '暂停' : '结束'}`, 'success');
+            } catch (error) {
+                showNotification('更新状态失败：' + error.message, 'error');
+            }
+        }
+
+        async function updateFileLimit() {
+            const limit = parseInt(document.getElementById('fileLimit').value);
+            if (!limit || limit < 1) {
+                showNotification('请输入有效的数字！', 'error');
+                return;
+            }
+
+            try {
+                let settings = await new AV.Query('CollectSettings').first();
+                if (!settings) {
+                    settings = new CollectSettings();
+
+
+                }
+
+
+                settings.set('fileLimit', limit);
+                await settings.save();
+
+                fileLimit = limit;
+                showNotification(`文件数量限制已更新为：${limit}`, 'success');
+            } catch (error) {
+                showNotification('更新限制失败：' + error.message, 'error');
+            }
+        }
+
+        // ==================== 提交人管理 ====================
+        function showAddSubmitterModal() {
+            document.getElementById('addSubmitterModal').classList.add('active');
+            document.getElementById('newSubmitterName').value = '';
+            document.getElementById('newSubmitterName').focus();
+        }
+
+        async function addSubmitter() {
+            const name = document.getElementById('newSubmitterName').value.trim();
+            if (!name) {
+                showNotification('请输入姓名！', 'error');
+                return;
+            }
+
+            try {
+                // 检查是否已存在
+                const query = new AV.Query('Submitters');
+                query.equalTo('name', name);
+                const existing = await query.first();
+
+                if (existing) {
+                    showNotification('该人员已存在！', 'error');
+                    return;
+                }
+
+                const submitter = new Submitters();
+
+
+
+                submitter.set('name', name);
+                submitter.set('hasSubmitted', false);
+                await submitter.save();
+
+                showNotification(`添加成功：${name}`, 'success');
+                closeModal('addSubmitterModal');
+                loadSubmitters();
+                updateStats();
+            } catch (error) {
+                showNotification('添加失败：' + error.message, 'error');
+            }
+        }
+
+        async function deleteSubmitter(id) {
+            if (!confirm('确定要删除该提交人吗？')) return;
+
+            try {
+                const submitter = AV.Object.createWithoutData('Submitters', id);
+                await submitter.destroy();
+
+                // 同时删除其所有提交
+                const query = new AV.Query('Submissions');
+                query.equalTo('submitter', submitter.get('name'));
+                const submissions = await query.find();
+
+                for (const sub of submissions) {
+                    await sub.destroy();
+                }
+
+                showNotification('删除成功！', 'success');
+                loadSubmitters();
+                loadFiles();
+                updateStats();
+            } catch (error) {
+                showNotification('删除失败：' + error.message, 'error');
+            }
+        }
+
+        function showImportModal() {
+            document.getElementById('importModal').classList.add('active');
+            tempImportData = [];
+            document.getElementById('importFile').value = '';
+            document.getElementById('importPreview').innerHTML = '';
+        }
+
+       function handleImportFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    // 👉 Excel 文件
+    if (ext === 'xls' || ext === 'xlsx') {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+            const names = rows
+                .flat()
+                .map(v => String(v || '').trim())
+                .filter(v => v);
+
+            tempImportData = names;
+            document.getElementById('importPreview').innerHTML =
+                `<strong>预览（${names.length}人）：</strong><br>` +
+                names.slice(0, 10).join(', ') +
+                (names.length > 10 ? '...' : '');
+        };
+        reader.readAsArrayBuffer(file);
+        return;
+    }
+
+    // 👉 CSV / TXT（原逻辑）
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const content = e.target.result;
+        const names = content.split('\n')
+            .map(name => name.trim())
+            .filter(name => name.length > 0);
+
+        tempImportData = names;
+        document.getElementById('importPreview').innerHTML =
+            `<strong>预览（${names.length}人）：</strong><br>` +
+            names.slice(0, 10).join(', ') +
+            (names.length > 10 ? '...' : '');
+    };
+    reader.readAsText(file);
+}
+
+
+        async function confirmImport() {
+            if (tempImportData.length === 0) {
+                showNotification('请先选择文件！', 'error');
+                return;
+            }
+
+            let successCount = 0;
+            let failCount = 0;
+
+            for (const name of tempImportData) {
+                try {
+                    // 检查是否已存在
+                    const query = new AV.Query('Submitters');
+                    query.equalTo('name', name);
+                    const existing = await query.first();
+
+                    if (!existing) {
+                        const submitter = new Submitters();
+
+
+
+                        submitter.set('name', name);
+                        submitter.set('hasSubmitted', false);
+                        await submitter.save();
+                        successCount++;
+                    } else {
+                        failCount++; // 已存在
+                    }
+                } catch (error) {
+                    failCount++;
+                }
+            }
+
+            showNotification(`导入完成：成功 ${successCount} 人，跳过 ${failCount} 人`, 'success');
+            closeModal('importModal');
+            loadSubmitters();
+            updateStats();
+        }
+
+        async function clearSubmitters() {
+            if (!confirm('确定要清空所有提交人吗？这将同时删除所有相关数据！')) return;
+            if (!confirm('最后确认：此操作不可恢复！')) return;
+
+            try {
+                // 删除所有提交人
+                const submitterQuery = new AV.Query('Submitters');
+                const submitters = await submitterQuery.find();
+                for (const s of submitters) {
+                    await s.destroy();
+                }
+
+                // 删除所有提交文件
+                const submissionQuery = new AV.Query('Submissions');
+                const submissions = await submissionQuery.find();
+                for (const sub of submissions) {
+                    const file = sub.get('file');
+                    if (file) await file.destroy();
+                    await sub.destroy();
+                }
+
+                showNotification('所有数据已清空！', 'success');
+                loadSubmitters();
+                loadFiles();
+                updateStats();
+            } catch (error) {
+                showNotification('清空失败：' + error.message, 'error');
+            }
+        }
+
+        // ==================== 文件管理 ====================
+        async function previewFile(id) {
+            try {
+                const query = new AV.Query('Submissions');
+                query.include('file');
+                const submission = await query.get(id);
+                const file = submission.get('file');
+
+                const modal = document.getElementById('filePreviewModal');
+                const body = document.getElementById('modalBody');
+                const actions = document.getElementById('modalActions');
+
+                let content = '';
+                if (file.get('mime-type')?.startsWith('image/') ||
+                    ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(file.name.split('.').pop().toLowerCase())) {
+                    content = `<img src="${file.url()}" alt="${file.name}">`;
+                } else {
+                    content = `
+                        <div class="file-icon" style="font-size: 5rem; height: 200px;">
+                            ${getFileIcon(file.name)}
+                        </div>
+                        <div style="text-align: center; margin-top: 10px;">无法预览此文件类型</div>
+                    `;
+                }
+
+                body.innerHTML = `
+                    ${content}
+                    <div class="file-info">
+                        <div><strong>文件名：</strong>${file.name}</div>
+                        <div><strong>提交人：</strong>${submission.get('submitter')}</div>
+                        <div><strong>提交时间：</strong>${formatDate(submission.createdAt)}</div>
+                        <div><strong>文件大小：</strong>${(file.size() / 1024).toFixed(2)} KB</div>
+                    </div>
+                `;
+
+                actions.innerHTML = `
+                    <button class="btn btn-success" onclick="exportSingleFile('${id}')">📥 下载文件</button>
+                    <button class="btn btn-secondary" onclick="closeModal('filePreviewModal')">关闭</button>
+                `;
+
+                modal.classList.add('active');
+            } catch (error) {
+                showNotification('预览失败：' + error.message, 'error');
+            }
+        }
+
+        async function exportSingleFile(id) {
+            try {
+                const query = new AV.Query('Submissions');
+                query.include('file');
+                const submission = await query.get(id);
+                const file = submission.get('file');
+
+                // 创建下载链接
+                const link = document.createElement('a');
+                link.href = file.url();
+                link.download = file.name;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                showNotification(`开始下载：${file.name}`, 'success');
+            } catch (error) {
+                showNotification('导出失败：' + error.message, 'error');
+            }
+        }
+async function exportAllFiles() {
+  try {
+    const query = new AV.Query('Submissions');
+    query.limit(1000);
+    const list = await query.find();
+
+    let allFiles = [];
+
+    list.forEach(item => {
+      item.attributes && Object.values(item.attributes).forEach(val => {
+        // 单文件
+        if (val instanceof AV.File) {
+          allFiles.push(val);
+        }
+        // 多文件数组
+        if (Array.isArray(val)) {
+          val.forEach(v => {
+            if (v instanceof AV.File) {
+              allFiles.push(v);
+            }
+          });
+        }
+      });
+    });
+
+    if (allFiles.length === 0) {
+      showNotification('没有可导出的文件（字段中未发现 AV.File）', 'warning');
+      return;
+    }
+
+    await downloadFilesAsZip(allFiles, '全部提交文件.zip');
+    showNotification('ZIP 已开始下载', 'success');
+
+  } catch (error) {
+    showNotification('导出失败：' + error.message, 'error');
+  }
+}
+
+
+
+        async function deleteSubmission(id) {
+            if (!confirm('确定要删除这个文件吗？')) return;
+
+            try {
+                const submission = AV.Object.createWithoutData('Submissions', id);
+                const file = submission.get('file');
+
+                await submission.destroy();
+                if (file) await file.destroy();
+
+                showNotification('文件已删除', 'success');
+                loadFiles();
+                updateStats();
+            } catch (error) {
+                showNotification('删除失败：' + error.message, 'error');
+            }
+        }
+
+        async function clearAllFiles() {
+            if (!confirm('确定要清空所有提交的文件吗？')) return;
+            if (!confirm('最后确认：此操作不可恢复！')) return;
+
+            try {
+                const query = new AV.Query('Submissions');
+                const submissions = await query.find();
+
+                for (const sub of submissions) {
+                    const file = sub.get('file');
+                    if (file) await file.destroy();
+                    await sub.destroy();
+                }
+
+                // 重置提交人状态
+                const submitterQuery = new AV.Query('Submitters');
+                const submitters = await submitterQuery.find();
+                for (const s of submitters) {
+                    s.set('hasSubmitted', false);
+                    await s.save();
+                }
+
+                showNotification('所有文件已清空！', 'success');
+                loadFiles();
+                loadSubmitters();
+                updateStats();
+            } catch (error) {
+                showNotification('清空失败：' + error.message, 'error');
+            }
+        }
+
+        // ==================== 高级设置 ====================
+        async function resetCollection() {
+            if (!confirm('确定要重置收集内容吗？（保留名单）')) return;
+
+            try {
+                // 删除所有文件
+                const query = new AV.Query('Submissions');
+                const submissions = await query.find();
+
+                for (const sub of submissions) {
+                    const file = sub.get('file');
+                    if (file) await file.destroy();
+                    await sub.destroy();
+                }
+
+                // 重置提交人状态
+                const submitterQuery = new AV.Query('Submitters');
+                const submitters = await submitterQuery.find();
+                for (const s of submitters) {
+                    s.set('hasSubmitted', false);
+                    s.unset('submittedAt');
+                    await s.save();
+                }
+
+                showNotification('收集内容已重置！', 'success');
+                loadHostData();
+            } catch (error) {
+                showNotification('重置失败：' + error.message, 'error');
+            }
+        }
+
+        async function resetAll() {
+            if (!confirm('确定要重置全部吗？（包括所有名单和文件）')) return;
+            if (!confirm('最后确认：此操作不可恢复！')) return;
+
+            try {
+                // 删除所有提交人
+                const submitterQuery = new AV.Query('Submitters');
+                const submitters = await submitterQuery.find();
+                for (const s of submitters) {
+                    await s.destroy();
+                }
+
+                // 删除所有提交文件
+                const submissionQuery = new AV.Query('Submissions');
+                const submissions = await submissionQuery.find();
+                for (const sub of submissions) {
+                    const file = sub.get('file');
+                    if (file) await file.destroy();
+                    await sub.destroy();
+                }
+
+                // 重置设置
+                const settingsQuery = new AV.Query('CollectSettings');
+                const settings = await settingsQuery.first();
+                if (settings) {
+                    settings.set('status', 'paused');
+                    settings.set('fileLimit', 3);
+                    await settings.save();
+                }
+
+                showNotification('系统已完全重置！', 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } catch (error) {
+                showNotification('重置失败：' + error.message, 'error');
+            }
+        }
+
+        // ==================== 通用UI函数 ====================
+        function switchTab(tabName) {
+            // 隐藏所有标签
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // 显示选中标签
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            event.target.classList.add('active');
+
+            // 加载对应数据
+            if (tabName === 'submitters') loadSubmitters();
+            if (tabName === 'files') loadFiles();
+            if (tabName === 'settings') updateSystemInfo();
+        }
+
+        function updateSystemInfo() {
+            const info = document.getElementById('systemInfo');
+            info.innerHTML = `
+                <div><strong>当前版本：</strong> v1.0.0</div>
+                <div><strong>存储服务：</strong> LeanCloud</div>
+                <div><strong>当前状态：</strong> ${collectionStatus}</div>
+                <div><strong>文件限制：</strong> ${fileLimit} 个/人</div>
+                <div><strong>更新时间：</strong> ${formatDate(new Date())}</div>
+            `;
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        // 点击模态框外部关闭
+        document.querySelectorAll('.file-preview-modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+        });
+
+        // ==================== 初始化 ====================
+        window.addEventListener('load', () => {
+            // 检查是否配置
+            if (LEAN_CONFIG.appId === 'YOUR_APP_ID' || !LEAN_CONFIG.appId) {
+                showNotification('⚠️ 请先配置LeanCloud信息！', 'error');
+            }
+        });
+
+        // 键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            // ESC关闭模态框
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.file-preview-modal').forEach(modal => {
+                    modal.classList.remove('active');
+                });
+            }
+        });
+
+        // ================= ZIP 下载 =================
+async function downloadFilesAsZip(files, zipName = 'files.zip') {
+  if (!files || files.length === 0) {
+    showNotification('没有可下载的文件', 'warning');
+    return;
+  }
+
+  const zip = new JSZip();
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+
+    if (!file || !file.url) continue;
+
+    const url = file.url();
+    const filename = file.get('name') || `file_${i + 1}`;
+
+    const response = await fetch(url);
+    const blob = await response.blob();
+
+    zip.file(filename, blob);
+  }
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(zipBlob);
+  a.download = zipName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  URL.revokeObjectURL(a.href);
+}
+
+async function exportUserFiles(userName) {
+  try {
+    const query = new AV.Query('Submissions');
+    query.equalTo('submitter', userName);
+    query.limit(1000);
+
+    const list = await query.find();
+    let files = [];
+
+    list.forEach(item => {
+      Object.values(item.attributes).forEach(val => {
+        if (val instanceof AV.File) files.push(val);
+        if (Array.isArray(val)) {
+          val.forEach(v => v instanceof AV.File && files.push(v));
+        }
+      });
+    });
+
+    if (files.length === 0) {
+      showNotification('该用户没有文件可导出', 'warning');
+      return;
+    }
+
+    await downloadFilesAsZip(files, `${userName}_文件.zip`);
+    showNotification(`已导出 ${userName} 的文件`, 'success');
+
+  } catch (err) {
+    showNotification('导出失败：' + err.message, 'error');
+  }
+}
+
+async function deleteUserSubmissions(userName) {
+  if (!confirm(`确定删除 ${userName} 的所有提交文件吗？`)) return;
+
+  try {
+    // 1️⃣ 删除 Submissions（文件记录）
+    const subQuery = new AV.Query('Submissions');
+    subQuery.equalTo('submitter', userName);
+    subQuery.limit(1000);
+
+    const submissions = await subQuery.find();
+
+    for (const item of submissions) {
+      await item.destroy();
+    }
+
+    // 2️⃣ 同步更新 Submitters 状态（关键！！！）
+    const submitterQuery = new AV.Query('Submitters');
+    submitterQuery.equalTo('name', userName);
+    const submitter = await submitterQuery.first();
+
+    if (submitter) {
+      submitter.set('hasSubmitted', false);
+      submitter.set('submittedAt', null);
+      await submitter.save();
+    }
+
+    // 3️⃣ 刷新界面
+    showNotification(`${userName} 的文件已删除，状态已重置`, 'success');
+    loadFiles();
+    loadSubmitters();
+    updateStats();
+
+  } catch (err) {
+    showNotification('删除失败：' + err.message, 'error');
+  }
+}
+
+
+    </script>
 </body>
 </html>
